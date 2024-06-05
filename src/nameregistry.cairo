@@ -8,6 +8,8 @@ pub trait INameRegistry<TContractState> {
     fn get_name(self:@TContractState, address:ContractAddress) -> felt252;
     fn get_owner(self:@TContractState) -> NameRegistry::Person;
 }
+//contract interafces,this trait must be generic over the TContractState type.
+//it is rqd for funcs to access the contract's storage. so that they can read and write to it.
 
 #[starknet::contract]
 mod NameRegistry {
@@ -20,6 +22,7 @@ mod NameRegistry {
         registration_type:LegacyMap::<ContractAddress,RegistrationType>,
         total_names:u128,
     }
+
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
@@ -31,6 +34,11 @@ mod NameRegistry {
         user:ContractAddress,
         name:felt252,
     }
+
+    //indexing events fields allows for more efficient queries and filtering of events. to index a field as a 
+    //key of an event. simply annotate it with the #[key], by so doing any indexed field will allow queries of events
+    //that contain a given value for that field with O(log(n)) time complexity, while non indexed fields require
+    //any query to iterate over all events. providing O(n) time complexity. 
     #[derive(Drop, Serde, starknet::Store)]
     pub struct Person {
         address:ContractAddress,
@@ -52,7 +60,8 @@ mod NameRegistry {
     fn constructor(ref self:ContractState, owner:Person){
         self.names.write(owner.address, owner.name); //self.names.write(user, name);
         self.total_names.write(1);
-        self.owner.write(owner);
+        self.owner.write(owner);//number of args depends on the storage variable type. here we only pass in the
+        //value to write to the owner variable as it is a simple variable.
     }
     //public funcs inside an impl block
     #[abi(embed_v0)]
@@ -87,6 +96,9 @@ mod NameRegistry {
             self.registration_type.write(user, registration_type);
             self.total_names.write(total_names + 1);
             self.emit(StoredName {user:user, name:name});
+            //after defining events, we can emit them using self.emit 
+            //emit func is called on self and takes a reference to self, ie state modification capabilities are rqd.
+            //therefore not possible to emit events in view funcs.
         }
     }
     //free function
